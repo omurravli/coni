@@ -7,12 +7,15 @@ if ! command -v brew >/dev/null 2>&1; then
     echo ' /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
     exit 1
 fi
+echo "Installing Python3.12"
+brew install python@3.12
+
 
 echo "Installing ffmepg (ffplay)..."
 brew install ffmpeg
 
 echo "Creating virtual environment..."
-python3 -m venv .venv
+/opt/homebrew/bin/python3.12 -m venv .venv
 
 echo "Activating venv..."
 source .venv/bin/activate
