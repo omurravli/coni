@@ -8,10 +8,10 @@ if ! command -v brew >/dev/null 2>&1; then
     exit 1
 fi
 echo "Installing Python3.12"
-brew install python@3.12 ffmpeg portaudio
+brew install python@3.12 ffmpeg
 
 echo "Installing ffmepg (ffplay)..."
-brew install ffmpeg
+brew install ffmpeg portaudio
 
 echo "Creating virtual environment..."
 /opt/homebrew/bin/python3.12 -m venv .venv
