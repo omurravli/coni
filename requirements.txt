@@ -1,6 +1,4 @@
-elevenlabs
-SpeechRecognition
-pyaudio
-requests
-python-dotenv
-dotenv
+SpeechRecognition==3.10.4
+PyAudio==0.2.14
+piper-tts==1.2.0
+python-dotenv==1.0.1
