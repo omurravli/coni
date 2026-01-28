@@ -5,6 +5,6 @@ Meet the Virtual Voice Asistant Coni
 ```bash
 git clone https://github.com/omurravli/coni.git
 cd coni
-./install.sh
+bash install.sh
 source .venv/bin/activate
 python3 coni_v02.py
