@@ -1,4 +1,5 @@
 # Coni_V02
+Meet the Virtual Voice Asistant Coni
 
 ## Setup for MacOS
 ```bash
