@@ -29,22 +29,26 @@ def _wait_file_stable(path: str, checks: int = 6, sleep_s: float = 0.03) -> None
         last = size
         time.sleep(sleep_s)
 
-def _prepend_silence_wav(wav_path: str, ms: int = 300) -> None:
+def _pad_silence_wav(wav_path: str, pre_ms: int = 2000, post_ms: int = 400) -> None:
     import wave
+
     with wave.open(wav_path, "rb") as r:
         params = r.getparams()
         frames = r.readframes(r.getnframes())
 
-    nch, sampwidth, framrate, *_ = params
+    nch, sampwidth, framerate, *_ = params
     if(sampwidth != 2):
         return
     
-    silence_frames = int(framrate * (ms / 1000.0))
-    silence = b"\x00\x00" * silence_frames * nch
+    pre_frames = int(framerate * (pre_ms / 1000.0))
+    post_frames = int(framerate * (post_ms / 1000.0))
+    
+    silence_pre = (b"\x00\x00" * nch) * pre_frames
+    silence_post = (b"\x00\x00" * nch) * post_frames
 
     with wave.open(wav_path, "wb") as w:
         w.setparams(params)
-        w.writeframes(silence + frames)
+        w.writeframes(silence_pre + frames + silence_post)
 
 def speak(text: str) -> None:
     global speaking
@@ -66,7 +70,10 @@ def speak(text: str) -> None:
         )
 
         _wait_file_stable(tmp_path)
-        _prepend_silence_wav(tmp_path, PRE_SILENCE_MS)
+        _pad_silence_wav(tmp_path,
+                        pre_ms=2000,
+                        post_ms=500
+                        )
 
         subprocess.run(
             ["ffplay", "-nodisp", "-autoexit", "-loglevel", "quiet", tmp_path],
