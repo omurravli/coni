@@ -8,7 +8,7 @@ if ! command -v brew >/dev/null 2>&1; then
     exit 1
 fi
 echo "Installing Python3.12"
-brew install python@3.12 ffmpeg
+brew install python@3.12
 
 echo "Installing ffmepg (ffplay)..."
 brew install ffmpeg portaudio
