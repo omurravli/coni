@@ -4,16 +4,25 @@ import time
 from pathlib import Path
 import os
 import tempfile
+import re
 
 
-MODEL_DIR = Path("models/en_ryan")
-MODEL = MODEL_DIR / "en_US-ryan-high.onnx"
-CONFIG = MODEL_DIR / "en_US-ryan-high.onnx.json"
+MODEL_DIR_EN = Path("models/en_ryan")
+MODEL_EN = MODEL_DIR_EN / "en_US-ryan-high.onnx"
+CONFIG_EN = MODEL_DIR_EN / "en_US-ryan-high.onnx.json"
+
+MODEL_DIR_TR = Path("models/tr")
+MODEL_TR = MODEL_DIR_TR / "tr_TR-dfki-medium.onnx"
+CONFIG_TR = MODEL_DIR_TR / "tr_TR-dfki-medium.onnx.json"
+
 OUT_WAV = "tts_out.wav"
 PRE_SILENCE_MS = 2000
 
-if not MODEL.exists or not CONFIG.exists():
-    raise SystemExit("Model files not found!")
+if not MODEL_EN.exists() or not CONFIG_EN.exists():
+    raise SystemExit("EN model files not found!")
+
+if not MODEL_TR.exists() or not CONFIG_TR.exists():
+    raise SystemExit("TR model dosyaları bulunamadı!")
 
 speaking = False
 
@@ -50,10 +59,10 @@ def _pad_silence_wav(wav_path: str, pre_ms: int = 2000, post_ms: int = 400) -> N
         w.setparams(params)
         w.writeframes(silence_pre + frames + silence_post)
 
-def speak(text: str) -> None:
+def speak(text: str, lang: str = "en") -> None:
     global speaking
 
-    text = text.strip()
+    text = (text or "").strip()
     if not text:
         return
     
@@ -63,8 +72,15 @@ def speak(text: str) -> None:
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
             tmp_path = tmp.name
 
+        if lang == "tr":
+            model, config = MODEL_TR, CONFIG_TR
+        else:
+            model, config = MODEL_EN, CONFIG_EN
+        
+
+
         subprocess.run(
-            ["piper", "--model", str(MODEL), "--config", str(CONFIG), "--output_file", tmp_path],
+            ["piper", "--model", str(model), "--config", str(config), "--output_file", tmp_path],
             input=text.encode("utf-8"),
             check=True
         )
@@ -87,10 +103,35 @@ def speak(text: str) -> None:
             except OSError:
                 pass
 
+TR_CHARS = set("çğıöşüÇĞİÖŞÜ")
+EN_COMMON = {"the", "and", "is", "are", "what", "how", "you", "your", "i", "we", "can", "do", "to", "for", "x", "exit", "ex"}
 
-def listen(language: str = "en-US", timeout: int = 6, phrase_time_limit: int = 8) -> str:
+def _score_test(text: str, lang: str) -> float:
+    t = (text or "").strip()
+    if not t:
+        return -1e9
+    
+    score = 0.0
+    words = re.findall(r"[A-Za-zÇĞİÖŞÜçğıöşü]+", t)
+
+    if len(words) >= 3:
+        score += 1
+    if len(t) >= 10:
+        score += 0.5
+    
+    if lang == "tr":
+        score += sum(1 for ch in t if ch in TR_CHARS) * 1.2
+        score -= sum(1 for w in words if w.lower() in EN_COMMON) * 0.2
+    if lang == "en":
+        score += sum(1 for w in words if w.lower() in EN_COMMON) * 0.6
+        score -= sum(1 for ch in t if ch in TR_CHARS) * 0.8
+
+    return score
+
+
+def _listen_audio(timeout: int = 6, phrase_time_limit: int = 8) -> str:
     if speaking:
-        return ""
+        return None
     
     r = sr.Recognizer()
     r.dynamic_energy_threshold = True
@@ -98,20 +139,52 @@ def listen(language: str = "en-US", timeout: int = 6, phrase_time_limit: int = 8
     with sr.Microphone() as source:
         r.adjust_for_ambient_noise(source, duration=0.6)
         print("Listening")
-        audio = r.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
+        try:
+            audio = r.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
+        except sr.WaitTimeoutError:
+            return None
+    return r, audio
+
+def listen_auto(timeout: int = 6, phrase_time_limit: int = 8) -> tuple[str, str]:
+    pair = _listen_audio(timeout=timeout, phrase_time_limit=phrase_time_limit)
+    if not pair:
+        return "", ""
+    
+    r, audio = pair
 
     try:
-        return r.recognize_google(audio, language=language)
+        en_text = r.recognize_google(audio, language = "en-US")
     except sr.UnknownValueError:
-        return ""
+        en_text = ""
     except sr.RequestError:
-        return "__REQUEST_ERROR__"
+        return "__REQUEST_ERROR__", ""
+    
+    try:
+        tr_text = r.recognize_google(audio, language = "tr-TR")
+    except sr.UnknownValueError:
+        tr_text = ""
+    except sr.RequestError:
+        return "__REQUEST_ERROR__", ""
+    
+    tr_text = (tr_text or "").strip()
+    en_text = (en_text or "").strip()
+
+    if not tr_text and not en_text:
+        return "", ""
+    
+    tr_score = _score_test(tr_text, "tr")
+    en_score = _score_test(en_text, "en")
+
+    if tr_score >= en_score:
+        return tr_text, "tr"
+    return en_text, "en"
+
     
 def main():
-    speak("Hello sir, I am ready, say exit to exit.")
+    speak("Hello sir, I am ready, say exit to exit.", lang="en")
 
     while True:
-        text = listen()
+        text, lang = listen_auto(timeout=6, phrase_time_limit=10)
         
         if text == "__REQUEST_ERROR__":
             print("Speech Service Error")
@@ -121,14 +194,23 @@ def main():
         if not text:
             continue
         
-        print("You said:", text)
+        if lang == "tr":
+            print(f"Şunu dedin ({lang}): {text}")
+        else:
+            print(f"You said ({lang}): {text}")
         
         lowered = text.lower()
         if "exit" in lowered or "close" in lowered:
-            speak("See you soon sir.")
+            speak("See you soon sir!", lang="en")
+            break
+        if "çık" in lowered or "kapat" in lowered:
+            speak("Görüşürüz efendim!", lang="tr")
             break
 
-        speak(f"You said: {text}")
+        if lang == "tr":
+            speak(f"Şunu dedin: {text}", lang="tr")
+        else:
+            speak(f"You said: {text}", lang="en")
 
 if __name__ == "__main__":
     main()
