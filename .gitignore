@@ -4,3 +4,5 @@ audios
 models
 other scripts
 .env
+*.mp3
+*.wav

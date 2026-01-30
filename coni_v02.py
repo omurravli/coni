@@ -5,6 +5,13 @@ from pathlib import Path
 import os
 import tempfile
 import re
+from dotenv import load_dotenv
+from openai import OpenAI
+
+
+load_dotenv()
+client = OpenAI()
+
 
 
 MODEL_DIR_EN = Path("models/en_ryan")
@@ -77,8 +84,6 @@ def speak(text: str, lang: str = "en") -> None:
         else:
             model, config = MODEL_EN, CONFIG_EN
         
-
-
         subprocess.run(
             ["piper", "--model", str(model), "--config", str(config), "--output_file", tmp_path],
             input=text.encode("utf-8"),
@@ -179,9 +184,39 @@ def listen_auto(timeout: int = 6, phrase_time_limit: int = 8) -> tuple[str, str]
         return tr_text, "tr"
     return en_text, "en"
 
+def ask_ai(user_text: str, lang: str, history: list[dict]) -> str:
+    system_tr = (
+        "Sen bir sesli asistansın. Cevapların kısa, net ve konuşma dilinde olsun."
+        "Gereksiz teknik detay verme. Maksimum 3-5 cümle."
+    )
+    system_en = (
+        "You are a voice asistant. Keep answers short, clear and spoken-friendly."
+        "Avoid unnecessary technical detail. Max 3-5 sentences."
+    )
+
+    messages = [{"role": "system", "content": system_tr if lang == "tr" else system_en}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": user_text})
+
+    try:
+        resp = client.responses.create(
+            model="gpt-4.1-mini",
+            input=messages
+        )
+        answer = (resp.output_text or "").strip()
+        if not answer:
+            return "bir cevap üretemedim" if lang == "tr" else "I couldn't generate an answer"
+        return answer
+    except Exception as e:
+        print("OpenAI error", e)
+        return "Şu an yapay zekaya ulaşamıyorum" if lang == "tr" else "I can't reach the ai."
+    
+
     
 def main():
     speak("Hello sir, I am ready, say exit to exit.", lang="en")
+    history = []
+
 
     while True:
         text, lang = listen_auto(timeout=6, phrase_time_limit=10)
@@ -207,10 +242,16 @@ def main():
             speak("Görüşürüz efendim!", lang="tr")
             break
 
-        if lang == "tr":
-            speak(f"Şunu dedin: {text}", lang="tr")
-        else:
-            speak(f"You said: {text}", lang="en")
+        answer = ask_ai(text, lang, history)
+
+        history.append({"role": "user", "content": text})
+        history.append({"role": "assistant", "content": answer})
+        history[:] = history[-8:]
+
+        speak(answer, lang=lang)
+        print(answer)
+
+        
 
 if __name__ == "__main__":
     main()
