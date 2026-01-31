@@ -9,5 +9,6 @@ git clone https://github.com/omurravli/coni.git
 cd coni
 bash install.sh
 source .venv/bin/activate
-add your api key to .env file
+add your api key to .env file as:
+    OPENAI_API_KEY='YOUR_KEY'
 python3 coni_v02.py
