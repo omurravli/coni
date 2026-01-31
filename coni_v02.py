@@ -142,7 +142,7 @@ def _listen_audio(timeout: int = 6, phrase_time_limit: int = 8) -> str:
     r.dynamic_energy_threshold = True
 
     with sr.Microphone() as source:
-        r.adjust_for_ambient_noise(source, duration=0.6)
+        r.adjust_for_ambient_noise(source, duration=0.2)
         print("Listening")
         try:
             audio = r.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
@@ -186,12 +186,12 @@ def listen_auto(timeout: int = 6, phrase_time_limit: int = 8) -> tuple[str, str]
 
 def ask_ai(user_text: str, lang: str, history: list[dict]) -> str:
     system_tr = (
-        "Sen bir sesli asistansın. Cevapların kısa, net ve konuşma dilinde olsun."
-        "Gereksiz teknik detay verme. Maksimum 3-5 cümle."
+        "Sen bir sesli asistansın, ismin 'Coni' ve bana efendim diye hitap ediyorsun. Cevapların kısa, net ve konuşma dilinde olsun."
+        "Gereksiz teknik detay verme. Maksimum 3-5 cümle. Sonuna 'nasıl yardımcı olabilirim' cümlesini ekleme."
     )
     system_en = (
-        "You are a voice asistant. Keep answers short, clear and spoken-friendly."
-        "Avoid unnecessary technical detail. Max 3-5 sentences."
+        "You are a voice asistant, your name is 'Coni' and you call me sir. Keep answers short, clear and spoken-friendly."
+        "Avoid unnecessary technical detail. Max 3-5 sentences. Don't add the 'how can help you' sentence at the end."
     )
 
     messages = [{"role": "system", "content": system_tr if lang == "tr" else system_en}]
@@ -246,7 +246,7 @@ def main():
 
         history.append({"role": "user", "content": text})
         history.append({"role": "assistant", "content": answer})
-        history[:] = history[-8:]
+        history[:] = history[-6:]
 
         speak(answer, lang=lang)
         print(answer)
