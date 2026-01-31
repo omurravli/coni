@@ -7,6 +7,8 @@ import tempfile
 import re
 from dotenv import load_dotenv
 from openai import OpenAI
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 
 load_dotenv()
@@ -185,13 +187,23 @@ def listen_auto(timeout: int = 6, phrase_time_limit: int = 8) -> tuple[str, str]
     return en_text, "en"
 
 def ask_ai(user_text: str, lang: str, history: list[dict]) -> str:
+
+    now = datetime.now(ZoneInfo("Europe/Istanbul"))
+    today_str_tr = now.strftime("%d %B %Y")
+    today_iso = now.strftime("%Y-%m-%d")
+    time_str = now.strftime("%H:%M")
+
     system_tr = (
         "Sen bir sesli asistansın, ismin 'Coni' ve bana efendim diye hitap ediyorsun. Cevapların kısa, net ve konuşma dilinde olsun."
         "Gereksiz teknik detay verme. Maksimum 3-5 cümle. Sonuna 'nasıl yardımcı olabilirim' cümlesini ekleme."
+        f"Şu an Türkiye saatine göre tarih: {today_iso}, saat: {time_str}, Europe/Istanbul"
+        "Eğer kullanıcı 'bugün' derse bu tarihi baz al"
     )
     system_en = (
         "You are a voice asistant, your name is 'Coni' and you call me sir. Keep answers short, clear and spoken-friendly."
         "Avoid unnecessary technical detail. Max 3-5 sentences. Don't add the 'how can help you' sentence at the end."
+        f"Current date/time (Europe/Istanbul): {today_iso}"
+        "If the user says 'today' use this data."
     )
 
     messages = [{"role": "system", "content": system_tr if lang == "tr" else system_en}]
